@@ -57,6 +57,12 @@
 				
 				<option value="file0">github.com/rollicks-c/progressy/api.go (0.0%)</option>
 				
+				<option value="file1">github.com/rollicks-c/progressy/internal/progbar/api.go (37.1%)</option>
+				
+				<option value="file2">github.com/rollicks-c/progressy/internal/progbar/progress.go (82.5%)</option>
+				
+				<option value="file3">github.com/rollicks-c/progressy/internal/progbar/task.go (33.3%)</option>
+				
 				</select>
 			</div>
 			<div id="legend">
@@ -87,6 +93,280 @@ func WithOverallTask(name string, stepCount int) progbar.Option <span class="cov
 
 func New(w io.Writer, options ...progbar.Option) ProgressBar <span class="cov0" title="0">{
         return progbar.New(w, options...)
+}</span>
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package progbar
+
+import (
+        "fmt"
+        "io"
+        "sync"
+)
+
+type TaskHandler struct {
+        bar Progress
+        id  taskID
+}
+
+type Progress struct {
+        w     io.Writer
+        tasks map[taskID]*task
+        lock  *sync.Mutex
+
+        overallTask *task
+}
+
+type Option func(p *Progress)
+
+func WithOverallTask(name string, stepCount int) Option <span class="cov0" title="0">{
+        return func(p *Progress) </span><span class="cov0" title="0">{
+                u := p.AddTask(name)
+                u.makeGlobal(p)
+                u.Rel(0, stepCount)
+        }</span>
+}
+
+func New(w io.Writer, options ...Option) *Progress <span class="cov8" title="1">{
+        p := &amp;Progress{
+                w:     w,
+                tasks: make(map[taskID]*task),
+                lock:  &amp;sync.Mutex{},
+        }
+        for _, option := range options </span><span class="cov0" title="0">{
+                option(p)
+        }</span>
+        <span class="cov8" title="1">return p</span>
+}
+
+func (p Progress) AddTask(name string) TaskHandler <span class="cov8" title="1">{
+        line := len(p.tasks)
+        newTask := &amp;task{
+                line: line,
+                name: name,
+        }
+
+        id := taskID(fmt.Sprintf("%d", line))
+        p.tasks[id] = newTask
+
+        updater := TaskHandler{
+                bar: p,
+                id:  id,
+        }
+        return updater
+}</span>
+
+func (p Progress) Complete() <span class="cov0" title="0">{
+        p.lock.Lock()
+        defer p.lock.Unlock()
+
+        for _, t := range p.tasks </span><span class="cov0" title="0">{
+                t.current = t.max + 1
+        }</span>
+
+        <span class="cov0" title="0">p.report()
+        p.printf("")</span>
+}
+
+func (h TaskHandler) Complete() <span class="cov0" title="0">{
+        h.bar.complete(h.id)
+}</span>
+
+func (h TaskHandler) Abs(current, max int) int <span class="cov8" title="1">{
+        return h.bar.update(h.id, func(t task) task </span><span class="cov8" title="1">{
+                t.current = current
+                t.max = max
+                return t
+        }</span>)
+}
+
+func (h TaskHandler) Rel(deltaCurrent, deltaMax int) int <span class="cov0" title="0">{
+        return h.bar.update(h.id, func(t task) task </span><span class="cov0" title="0">{
+                t.current += deltaCurrent
+                t.max += deltaMax
+                return t
+        }</span>)
+}
+
+func (h TaskHandler) StepBy(step int) int <span class="cov0" title="0">{
+        return h.bar.update(h.id, func(t task) task </span><span class="cov0" title="0">{
+                t.current += step
+                return t
+        }</span>)
+}
+
+func (h TaskHandler) StepTo(value int) int <span class="cov0" title="0">{
+        return h.bar.update(h.id, func(t task) task </span><span class="cov0" title="0">{
+                t.current = value
+                return t
+        }</span>)
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package progbar
+
+import (
+        "fmt"
+        "sort"
+        "strings"
+)
+
+type updater func(t task) task
+
+func (p Progress) report() int <span class="cov8" title="1">{
+
+        // task as ordinal list by line
+        doneCount := 0
+        taskList := make([]*task, 0, len(p.tasks))
+        maxTaskWidth := 0
+        for _, t := range p.tasks </span><span class="cov8" title="1">{
+                taskList = append(taskList, t)
+                if len(t.describe()) &gt; maxTaskWidth </span><span class="cov8" title="1">{
+                        maxTaskWidth = len(t.describe())
+                }</span>
+                <span class="cov8" title="1">if t.isComplete() </span><span class="cov8" title="1">{
+                        doneCount++
+                }</span>
+        }
+        <span class="cov8" title="1">if p.overallTask != nil </span><span class="cov0" title="0">{
+                p.overallTask.current = doneCount
+        }</span>
+        <span class="cov8" title="1">sort.Slice(taskList, func(i, j int) bool </span><span class="cov0" title="0">{
+                return taskList[i].line &lt; taskList[j].line
+        }</span>)
+
+        // print progress per task
+        <span class="cov8" title="1">for _, t := range taskList </span><span class="cov8" title="1">{
+                p.printProgress(*t, maxTaskWidth)
+        }</span>
+
+        // report number of lines used
+        <span class="cov8" title="1">return len(taskList)</span>
+}
+
+func (p Progress) printProgress(task task, maxTaskWidth int) <span class="cov8" title="1">{
+
+        // calc relative progress
+        percentage := p.calcRelativeProgress(task.current, task.max)
+        barWidth := 50
+        progressWidth := (percentage * barWidth) / 100
+
+        // clear line
+        _, _ = fmt.Fprintf(p.w, "%s\r", strings.Repeat("", maxTaskWidth+barWidth+50))
+
+        // print progress
+        taskFill := strings.Repeat(" ", maxTaskWidth-len(task.describe()))
+        taskName := task.describe()
+        if task.isGlobal </span><span class="cov0" title="0">{
+                taskName = fmt.Sprintf("\033[1m%s\033[0m", taskName)
+        }</span>
+        <span class="cov8" title="1">p.printf("%s%s: ", taskName, taskFill)
+        spaceFill := barWidth - progressWidth
+        if spaceFill &lt; 0 </span><span class="cov0" title="0">{
+                spaceFill = 0
+        }</span>
+        <span class="cov8" title="1">p.printf("|%s%s", strings.Repeat("#", progressWidth), strings.Repeat(" ", spaceFill))
+        p.printf("| %d%%\n", percentage)</span>
+
+}
+
+func (p Progress) moveCursorUp(lines int) <span class="cov8" title="1">{
+        p.printf("\033[%dA", lines)
+}</span>
+
+func (p Progress) printf(exp string, args ...interface{}) <span class="cov8" title="1">{
+        _, _ = fmt.Fprintf(p.w, exp, args...)
+}</span>
+
+func (p Progress) calcRelativeProgress(current, max int) int <span class="cov8" title="1">{
+
+        if current &gt; max </span><span class="cov0" title="0">{
+                max = current
+        }</span>
+
+        <span class="cov8" title="1">if max &gt; 0 </span><span class="cov8" title="1">{
+                return (current * 100) / max
+        }</span> else<span class="cov8" title="1"> if current &gt; max </span><span class="cov0" title="0">{
+                return 100
+        }</span>
+        <span class="cov8" title="1">return 0</span>
+}
+
+func (p Progress) update(id taskID, h updater) int <span class="cov8" title="1">{
+
+        p.lock.Lock()
+        defer p.lock.Unlock()
+
+        // update
+        t := p.tasks[id]
+        tNew := h(*t)
+        tNew = p.sanitize(tNew)
+
+        // preserve other props
+        t.current = tNew.current
+        t.max = tNew.max
+        t.name = tNew.name
+        p.tasks[id] = t
+
+        lineCount := p.report()
+        p.moveCursorUp(lineCount)
+
+        return p.calcRelativeProgress(p.tasks[id].current, p.tasks[id].max)
+}</span>
+
+func (p Progress) sanitize(t task) task <span class="cov8" title="1">{
+        if t.current &lt; 0 </span><span class="cov8" title="1">{
+                t.current = 0
+        }</span>
+        <span class="cov8" title="1">if t.max &lt; 0 </span><span class="cov8" title="1">{
+                t.max = 0
+        }</span>
+        <span class="cov8" title="1">if t.current &gt; t.max </span><span class="cov8" title="1">{
+                t.current = t.max
+        }</span>
+        <span class="cov8" title="1">return t</span>
+}
+
+func (p Progress) complete(id taskID) <span class="cov0" title="0">{
+
+        p.lock.Lock()
+        defer p.lock.Unlock()
+
+        p.tasks[id].current = p.tasks[id].max + 1
+
+        lineCount := p.report()
+        p.moveCursorUp(lineCount)
+}</span>
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package progbar
+
+import "fmt"
+
+type taskID string
+
+type task struct {
+        line    int
+        name    string
+        current int
+        max     int
+
+        isGlobal bool
+}
+
+func (t task) describe() string <span class="cov8" title="1">{
+        return fmt.Sprintf("%s (%d)", t.name, t.max)
+}</span>
+
+func (t task) isComplete() bool <span class="cov8" title="1">{
+        return t.current &gt;= t.max
+}</span>
+
+func (h TaskHandler) makeGlobal(p *Progress) <span class="cov0" title="0">{
+        p.lock.Lock()
+        defer p.lock.Unlock()
+        p.overallTask = p.tasks[h.id]
+        p.overallTask.isGlobal = true
 }</span>
 </pre>
 		
