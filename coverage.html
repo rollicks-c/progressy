@@ -57,11 +57,11 @@
 				
 				<option value="file0">github.com/rollicks-c/progressy/api.go (0.0%)</option>
 				
-				<option value="file1">github.com/rollicks-c/progressy/internal/progbar/api.go (37.1%)</option>
+				<option value="file1">github.com/rollicks-c/progressy/internal/progbar/api.go (100.0%)</option>
 				
-				<option value="file2">github.com/rollicks-c/progressy/internal/progbar/progress.go (82.5%)</option>
+				<option value="file2">github.com/rollicks-c/progressy/internal/progbar/progress.go (96.8%)</option>
 				
-				<option value="file3">github.com/rollicks-c/progressy/internal/progbar/task.go (33.3%)</option>
+				<option value="file3">github.com/rollicks-c/progressy/internal/progbar/task.go (100.0%)</option>
 				
 				</select>
 			</div>
@@ -119,8 +119,8 @@ type Progress struct {
 
 type Option func(p *Progress)
 
-func WithOverallTask(name string, stepCount int) Option <span class="cov0" title="0">{
-        return func(p *Progress) </span><span class="cov0" title="0">{
+func WithOverallTask(name string, stepCount int) Option <span class="cov8" title="1">{
+        return func(p *Progress) </span><span class="cov8" title="1">{
                 u := p.AddTask(name)
                 u.makeGlobal(p)
                 u.Rel(0, stepCount)
@@ -133,7 +133,7 @@ func New(w io.Writer, options ...Option) *Progress <span class="cov8" title="1">
                 tasks: make(map[taskID]*task),
                 lock:  &amp;sync.Mutex{},
         }
-        for _, option := range options </span><span class="cov0" title="0">{
+        for _, option := range options </span><span class="cov8" title="1">{
                 option(p)
         }</span>
         <span class="cov8" title="1">return p</span>
@@ -156,19 +156,19 @@ func (p Progress) AddTask(name string) TaskHandler <span class="cov8" title="1">
         return updater
 }</span>
 
-func (p Progress) Complete() <span class="cov0" title="0">{
+func (p Progress) Complete() <span class="cov8" title="1">{
         p.lock.Lock()
         defer p.lock.Unlock()
 
-        for _, t := range p.tasks </span><span class="cov0" title="0">{
+        for _, t := range p.tasks </span><span class="cov8" title="1">{
                 t.current = t.max + 1
         }</span>
 
-        <span class="cov0" title="0">p.report()
+        <span class="cov8" title="1">p.report()
         p.printf("")</span>
 }
 
-func (h TaskHandler) Complete() <span class="cov0" title="0">{
+func (h TaskHandler) Complete() <span class="cov8" title="1">{
         h.bar.complete(h.id)
 }</span>
 
@@ -180,23 +180,23 @@ func (h TaskHandler) Abs(current, max int) int <span class="cov8" title="1">{
         }</span>)
 }
 
-func (h TaskHandler) Rel(deltaCurrent, deltaMax int) int <span class="cov0" title="0">{
-        return h.bar.update(h.id, func(t task) task </span><span class="cov0" title="0">{
+func (h TaskHandler) Rel(deltaCurrent, deltaMax int) int <span class="cov8" title="1">{
+        return h.bar.update(h.id, func(t task) task </span><span class="cov8" title="1">{
                 t.current += deltaCurrent
                 t.max += deltaMax
                 return t
         }</span>)
 }
 
-func (h TaskHandler) StepBy(step int) int <span class="cov0" title="0">{
-        return h.bar.update(h.id, func(t task) task </span><span class="cov0" title="0">{
+func (h TaskHandler) StepBy(step int) int <span class="cov8" title="1">{
+        return h.bar.update(h.id, func(t task) task </span><span class="cov8" title="1">{
                 t.current += step
                 return t
         }</span>)
 }
 
-func (h TaskHandler) StepTo(value int) int <span class="cov0" title="0">{
-        return h.bar.update(h.id, func(t task) task </span><span class="cov0" title="0">{
+func (h TaskHandler) StepTo(value int) int <span class="cov8" title="1">{
+        return h.bar.update(h.id, func(t task) task </span><span class="cov8" title="1">{
                 t.current = value
                 return t
         }</span>)
@@ -228,10 +228,10 @@ func (p Progress) report() int <span class="cov8" title="1">{
                         doneCount++
                 }</span>
         }
-        <span class="cov8" title="1">if p.overallTask != nil </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if p.overallTask != nil </span><span class="cov8" title="1">{
                 p.overallTask.current = doneCount
         }</span>
-        <span class="cov8" title="1">sort.Slice(taskList, func(i, j int) bool </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">sort.Slice(taskList, func(i, j int) bool </span><span class="cov8" title="1">{
                 return taskList[i].line &lt; taskList[j].line
         }</span>)
 
@@ -257,7 +257,7 @@ func (p Progress) printProgress(task task, maxTaskWidth int) <span class="cov8" 
         // print progress
         taskFill := strings.Repeat(" ", maxTaskWidth-len(task.describe()))
         taskName := task.describe()
-        if task.isGlobal </span><span class="cov0" title="0">{
+        if task.isGlobal </span><span class="cov8" title="1">{
                 taskName = fmt.Sprintf("\033[1m%s\033[0m", taskName)
         }</span>
         <span class="cov8" title="1">p.printf("%s%s: ", taskName, taskFill)
@@ -280,7 +280,7 @@ func (p Progress) printf(exp string, args ...interface{}) <span class="cov8" tit
 
 func (p Progress) calcRelativeProgress(current, max int) int <span class="cov8" title="1">{
 
-        if current &gt; max </span><span class="cov0" title="0">{
+        if current &gt; max </span><span class="cov8" title="1">{
                 max = current
         }</span>
 
@@ -327,7 +327,7 @@ func (p Progress) sanitize(t task) task <span class="cov8" title="1">{
         <span class="cov8" title="1">return t</span>
 }
 
-func (p Progress) complete(id taskID) <span class="cov0" title="0">{
+func (p Progress) complete(id taskID) <span class="cov8" title="1">{
 
         p.lock.Lock()
         defer p.lock.Unlock()
@@ -362,7 +362,7 @@ func (t task) isComplete() bool <span class="cov8" title="1">{
         return t.current &gt;= t.max
 }</span>
 
-func (h TaskHandler) makeGlobal(p *Progress) <span class="cov0" title="0">{
+func (h TaskHandler) makeGlobal(p *Progress) <span class="cov8" title="1">{
         p.lock.Lock()
         defer p.lock.Unlock()
         p.overallTask = p.tasks[h.id]
