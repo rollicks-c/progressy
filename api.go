@@ -5,9 +5,11 @@ import (
 	"io"
 )
 
+type TaskHandler = progbar.TaskHandler
+
 type ProgressBar interface {
 	Complete()
-	AddTask(name string) progbar.TaskHandler
+	AddTask(name string) TaskHandler
 }
 
 func WithOverallTask(name string, stepCount int) progbar.Option {
